@@ -1,0 +1,110 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Net;
+using System.Security.Cryptography;
+ 
+namespace CallApi {
+    class Program {
+        //  Please change this values
+        private static string apikey = "SLHZQB1B4XPRW1SN2B36X81NSRHX21N9";
+        private static string secret = "X9ZTM76VR9M9PG8253MNQT5HQNWQ3WHW";
+        //  Restfull API url
+        private static string BaseUri = "http://193.238.77.55/api/v2/";
+ 
+        static void Main(string[] args)
+        {
+            // *****************************************************************************************************************************
+            //    Samples
+            //    Warning! In order to read or write data (resellers, managers, hotspot, domains, users, etc.) the AppID must be a member
+            //                forming part of the requested information. Example: A system user can read the information of the managers if 
+            //                the AppID is defined in the reseller or in the manager
+            //
+            //  The parameters must be separated by slash "/", formatted like: params=value
+ 
+            //    Call a test API
+            //var functionName = "testapi"; var parameters = new Dictionary<string, object> { { "Param1", "Abcd" }, { "ParamN", 1234 } };
+ 
+            //  User Write Sample
+            var functionName = "userWrite"; var parameters = new Dictionary<string, object> { { "id", "15024593" }, { "FirstName", "Test" } };
+ 
+            var result = callApi(functionName, parameters);
+        }
+ 
+        static string callApi(string functionName, Dictionary<string, object> values) {
+            using (var client = new WebClient()) {
+ 
+                var parameters = new List<string>();
+ 
+                foreach (var item in values)
+                {
+                    parameters.Add(string.Format("{0}={1}", item.Key, item.Value));
+                }
+ 
+                //  Rijndael encripted parameters
+                var enc_parameters = Encrypt(string.Join("/", parameters));
+ 
+                //  base64 the encrypted result 
+                var b64_parameters = Convert.ToBase64String(enc_parameters);
+                b64_parameters = b64_parameters.TrimEnd('=').Replace("+", "-").Replace("/", "_");
+ 
+                //  Pompose the complete url request 
+                var requestFullUrl = BaseUri + functionName + "/" + "apikey=" + apikey + "/" + "sparam=" + b64_parameters;
+ 
+                //  Get the json result
+                return client.DownloadString(requestFullUrl);
+            }
+        }
+ 
+        static byte[] Encrypt(string plainText) {
+            byte[] Key = md5(secret);
+            byte[] IV = Sha256(apikey);
+ 
+            //  fix php weird string to bytearray conversion
+            Key = System.Text.Encoding.UTF8.GetBytes(BitConverter.ToString(Key).Replace("-", "").ToLower());
+ 
+            byte[] encrypted;
+            //  Create an Rijndael object
+            //  with the specified key and IV.
+            using (Rijndael rijAlg = Rijndael.Create()) {
+                rijAlg.BlockSize = IV.Length * 8;
+                rijAlg.KeySize = Key.Length * 8;
+ 
+                rijAlg.Mode = CipherMode.CBC;
+                rijAlg.Key = Key;
+                rijAlg.IV = IV;
+ 
+                // Create a decrytor to perform the stream transform.
+                ICryptoTransform encryptor = rijAlg.CreateEncryptor(rijAlg.Key, rijAlg.IV);
+ 
+                // Create the streams used for encryption.
+                using (MemoryStream msEncrypt = new MemoryStream()) {
+                    using (CryptoStream csEncrypt = new CryptoStream(msEncrypt, encryptor, CryptoStreamMode.Write)) {
+                        using (StreamWriter swEncrypt = new StreamWriter(csEncrypt)) {
+                            //Write all data to the stream.
+                            swEncrypt.Write("encchk=1/" + plainText);
+                        }
+                        encrypted = msEncrypt.ToArray();
+                    }
+                }
+            }
+ 
+            // Return the encrypted bytes from the memory stream.
+            return encrypted;
+        }
+ 
+        private static byte[] Sha256(string input) {
+            using (SHA256 sha = SHA256.Create())
+            {
+                return sha.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+            }
+        }
+ 
+        private static byte[] md5(string input) {
+            using (MD5 md5 = MD5.Create())
+            {
+                return md5.ComputeHash(System.Text.Encoding.UTF8.GetBytes(input));
+            }
+        }
+    }
+}
