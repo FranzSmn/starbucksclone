@@ -5,8 +5,11 @@ const solution = (start, finish , diference = finish - start) =>{
 
  
 //Codewars Are the numbers in order? (7 Kyu)
+const inAscOrder = (arr) => {
+    let res = true
 
-const inAscOrder = (arr) => arr[0] < arr[1] ? true : false;
-
-
-console.log(inAscOrder([1,2,3,4,5]));
+    for(let i = 0;i<arr.length;i++){
+        if(arr[i+1] < arr[i])res = false
+    }
+    return res;
+}
